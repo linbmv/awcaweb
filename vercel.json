@@ -1,0 +1,67 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/v1.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/cron.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/debug.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/notification.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/statistics-to-channel.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/cron",
+      "dest": "/api/cron.js"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/v1.js"
+    },
+    {
+      "src": "/debug",
+      "dest": "/api/debug.js"
+    },
+    {
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
+    },
+    {
+      "src": "/vite.svg",
+      "dest": "/vite.svg"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "1 20 * * *"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "Bash(git clone https://github.com/linbmv/abread.git /tmp/abread)",
+      "Bash(git clone https://github.com/linbmv/awcamsg.git /tmp/awcamsg)",
+      "Bash(git init)",
+      "Bash(git remote add origin https://github.com/linbmv/awcaweb.git)",
+      "Bash(git add .)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

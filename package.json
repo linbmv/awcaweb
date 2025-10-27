@@ -1,0 +1,23 @@
+{
+  "name": "abread",
+  "version": "1.0.0",
+  "description": "Bible Reading Tracker",
+  "main": "server.js",
+  "scripts": {
+    "build": "node build-script.js",
+    "build-frontend": "node build-script.js",
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test-redis": "node test-redis.js"
+  },
+  "dependencies": {
+    "@vercel/edge-config": "^1.0.1",
+    "baileys": "^6.7.20",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^2.6.7",
+    "redis": "^4.6.14"
+  }
+}
