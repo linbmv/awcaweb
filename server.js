@@ -215,6 +215,31 @@ app.post('/api/test-cron', async (req, res) => {
     }
 });
 
+// --- 加载额外的API路由 ---
+// WhatsApp管理API
+try {
+  const whatsappAdminHandler = require('./api/whatsapp-admin');
+  app.use('/api/whatsapp-admin', whatsappAdminHandler);
+} catch (error) {
+  console.log('WhatsApp管理API未找到，跳过加载:', error.message);
+}
+
+// 用户关联API
+try {
+  const userAssociationHandler = require('./api/user-association');
+  app.use('/api/user-association', userAssociationHandler);
+} catch (error) {
+  console.log('用户关联API未找到，跳过加载:', error.message);
+}
+
+// 发送统计信息API
+try {
+  const sendStatisticsHandler = require('./api/send-statistics');
+  app.use('/api/send-statistics', sendStatisticsHandler);
+} catch (error) {
+  console.log('发送统计API未找到，跳过加载:', error.message);
+}
+
 // SPA路由 - 在所有API路由之后
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend/dist', 'index.html'));

@@ -1,9 +1,8 @@
 /* eslint-disable no-undef */
 // /api/whatsapp-baileys.js - 使用Baileys库发送WhatsApp消息
 const { Boom } = require('@hapi/boom');
-const { DisconnectReason, useMultiFileAuthState, makeInMemoryStore, jidNormalizedUser, proto, getContentType } = require('@whatsapp/web-core');
+const { DisconnectReason, useMultiFileAuthState, makeInMemoryStore, jidNormalizedUser, proto, getContentType } = require('baileys');
 const { makeWASocket, Browsers } = require('baileys');
-const { generateStatisticsText } = require('./_lib/utils.js');
 
 // 创建内存存储，用于存储聊天记录
 const store = makeInMemoryStore({

@@ -71,6 +71,53 @@ export const apiService = {
   // 验证密码
   async verifyPassword(password) {
     return await api.post('/verify-password', { password })
+  },
+
+  // ===== WhatsApp 管理相关API =====
+
+  // 获取WhatsApp连接状态
+  async getWhatsAppStatus() {
+    return await api.get('/whatsapp-admin?action=status')
+  },
+
+  // WhatsApp管理操作
+  async whatsappAdmin(data) {
+    return await api.post('/whatsapp-admin', data)
+  },
+
+  // 获取QR码
+  async getWhatsAppQr() {
+    return await api.get('/whatsapp-admin?action=qr')
+  },
+
+  // 获取WhatsApp联系人列表
+  async getWhatsAppContacts() {
+    return await api.get('/whatsapp-admin?action=contacts')
+  },
+
+  // 获取WhatsApp群组列表
+  async getWhatsAppGroups() {
+    return await api.get('/whatsapp-admin?action=groups')
+  },
+
+  // 获取用户关联信息
+  async getUserAssociations() {
+    return await api.get('/user-association')
+  },
+
+  // 关联用户与联系人
+  async associateUser(data) {
+    return await api.post('/user-association', data)
+  },
+
+  // 取消用户关联
+  async unassociateUser(userId) {
+    return await api.delete(`/user-association?userId=${userId}`)
+  },
+
+  // 发送统计信息（支持WhatsApp格式）
+  async sendStatisticsEnhanced(data) {
+    return await api.post('/send-statistics', data)
   }
 }
 

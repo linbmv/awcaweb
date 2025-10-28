@@ -6,62 +6,77 @@
   />
 
   <!-- Main app - shown only after authentication -->
-  <div v-if="isAuthenticated" class="container">
-    <!-- 头部 -->
-    <header>
-      <h1>泛亚中文读经</h1>
-      <div class="reading-plan" id="readingPlan">
-        {{ readingPlan }}
+  <div v-if="isAuthenticated">
+    <!-- WhatsApp管理页面 -->
+    <div v-if="currentView === 'whatsapp-admin'" class="admin-view">
+      <WhatsAppAdmin @back="currentView = 'main'" />
+    </div>
+
+    <!-- 主页面 -->
+    <div v-else class="container">
+      <!-- 头部 -->
+      <header>
+        <div class="header-left">
+          <button class="whatsapp-btn" @click="currentView = 'whatsapp-admin'" title="WhatsApp管理">
+            <i class="fab fa-whatsapp"></i>
+          </button>
+          <h1>泛亚中文读经</h1>
+          <div class="reading-plan" id="readingPlan">
+            {{ readingPlan }}
+          </div>
+        </div>
+        <div class="header-right">
+        </div>
+      </header>
+
+      <!-- 添加用户按钮 -->
+      <button class="add-user-btn" @click="showAddUserModal = true">+</button>
+
+      <!-- 用户卡片区域 -->
+      <div class="user-cards" id="userCards">
+        <UserCard
+          v-for="user in sortedUsers"
+          :key="user.id"
+          :user="user"
+          @state-change="handleUserStateChange"
+          @context-menu="showContextMenu"
+        />
       </div>
-    </header>
 
-    <!-- 添加用户按钮 -->
-    <button class="add-user-btn" @click="showAddUserModal = true">+</button>
+      <!-- 统计信息区域 -->
+      <div class="statistics-section">
+        <div class="stats-header">
+          <button class="send-stats-btn" @click="sendStatistics" title="统计">
+            <i class="fab fa-whatsapp whatsapp-btn-icon"></i>
+            <span class="btn-text">统计</span>
+          </button>
+        </div>
+        <div class="live-statistics" id="liveStatistics">
+          {{ liveStatistics }}
+        </div>
+      </div>
 
-    <!-- 用户卡片区域 -->
-    <div class="user-cards" id="userCards">
-      <UserCard
-        v-for="user in sortedUsers"
-        :key="user.id"
-        :user="user"
-        @state-change="handleUserStateChange"
-        @context-menu="showContextMenu"
+      <!-- 添加用户模态框 -->
+      <AddUserModal
+        :show="showAddUserModal"
+        @close="showAddUserModal = false"
+        @add-users="addUsers"
+      />
+
+      <!-- 未读天数模态框 -->
+      <UnreadDaysModal
+        :show="showUnreadDaysModal"
+        :current-days="currentUnreadDays"
+        @close="showUnreadDaysModal = false"
+        @confirm="confirmUnreadDays"
+      />
+
+      <!-- 统计面板 -->
+      <StatisticsPanel
+        :users="users"
+        @update-statistics="liveStatistics = $event"
       />
     </div>
-
-    <!-- 统计信息区域 -->
-    <div class="statistics-section">
-      <div class="stats-header">
-        <button class="send-stats-btn" @click="sendStatistics" title="统计">
-          <i class="fab fa-whatsapp whatsapp-btn-icon"></i>
-          <span class="btn-text">统计</span>
-        </button>
-      </div>
-      <div class="live-statistics" id="liveStatistics">
-        {{ liveStatistics }}
-      </div>
-    </div>
-
-    <!-- 添加用户模态框 -->
-    <AddUserModal
-      :show="showAddUserModal"
-      @close="showAddUserModal = false"
-      @add-users="addUsers"
-    />
-
-    <!-- 未读天数模态框 -->
-    <UnreadDaysModal
-      :show="showUnreadDaysModal"
-      :current-days="currentUnreadDays"
-      @close="showUnreadDaysModal = false"
-      @confirm="confirmUnreadDays"
-    />
-
-    <!-- 统计面板 -->
-    <StatisticsPanel
-      :users="users"
-      @update-statistics="liveStatistics = $event"
-    />
   </div>
 </template>
 
@@ -72,6 +87,7 @@ import AddUserModal from './components/AddUserModal.vue'
 import UnreadDaysModal from './components/UnreadDaysModal.vue'
 import StatisticsPanel from './components/StatisticsPanel.vue'
 import LoginModal from './components/LoginModal.vue'
+import WhatsAppAdmin from './components/WhatsAppAdmin.vue'
 import { useUserStore } from './stores/userStore'
 import apiService from './services/api'
 
@@ -79,6 +95,9 @@ const userStore = useUserStore()
 
 // Authentication state
 const isAuthenticated = ref(false)
+
+// 当前视图状态
+const currentView = ref('main')
 
 // 状态
 const showAddUserModal = ref(false)
@@ -371,4 +390,111 @@ function showSuccess(message) {
 
 <style>
 /* 样式将从main.css导入 */
+
+/* 管理视图样式 */
+.admin-view {
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+/* 头部布局修改 */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+
+.settings-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #25D366;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.settings-btn:hover {
+  background: #128C7E;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+.settings-btn i {
+  font-size: 18px;
+}
+
+@media (max-width: 768px) {
+  header {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .header-right {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* WhatsApp按钮样式 */
+.whatsapp-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: #25D366;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
+  transition: all 0.3s;
+  font-size: 24px;
+  position: absolute;
+  left: 20px;
+  top: 20px;
+}
+
+.whatsapp-btn:hover {
+  background: #128C7E;
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(37, 211, 102, 0.6);
+}
+
+.whatsapp-btn i {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .whatsapp-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+}
 </style>
