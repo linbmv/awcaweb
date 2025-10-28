@@ -15,11 +15,15 @@
     <!-- 主页面 -->
     <div v-else class="container">
       <!-- 头部 -->
+      <div class="app-controls">
+        <button class="whatsapp-btn" @click="currentView = 'whatsapp-admin'" title="WhatsApp管理">
+          <i class="fab fa-whatsapp"></i>
+        </button>
+        <button class="add-user-btn" @click="showAddUserModal = true">+</button>
+      </div>
+
       <header>
         <div class="header-left">
-          <button class="whatsapp-btn" @click="currentView = 'whatsapp-admin'" title="WhatsApp管理">
-            <i class="fab fa-whatsapp"></i>
-          </button>
           <h1>泛亚中文读经</h1>
           <div class="reading-plan" id="readingPlan">
             {{ readingPlan }}
@@ -28,9 +32,6 @@
         <div class="header-right">
         </div>
       </header>
-
-      <!-- 添加用户按钮 -->
-      <button class="add-user-btn" @click="showAddUserModal = true">+</button>
 
       <!-- 用户卡片区域 -->
       <div class="user-cards" id="userCards">
@@ -460,6 +461,16 @@ header {
   }
 }
 
+/* 控制按钮组样式 */
+.app-controls {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  gap: 10px;
+  z-index: 1000; /* 确保它在其他元素之上 */
+}
+
 /* WhatsApp按钮样式 */
 .whatsapp-btn {
   display: flex;
@@ -475,9 +486,6 @@ header {
   box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
   transition: all 0.3s;
   font-size: 24px;
-  position: absolute;
-  left: 20px;
-  top: 20px;
 }
 
 .whatsapp-btn:hover {
@@ -496,5 +504,29 @@ header {
     height: 44px;
     font-size: 20px;
   }
+}
+
+/* 添加用户按钮样式 */
+.add-user-btn {
+  position: static; /* 确保它在 app-controls 内部正确显示 */
+  background: #007bff; /* 蓝色按钮 */
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  font-size: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+  transition: all 0.3s;
+}
+
+.add-user-btn:hover {
+  background: #0056b3;
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(0, 123, 255, 0.6);
 }
 </style>

@@ -53,7 +53,10 @@
       "Bash(PORT=3012 node server.js)",
       "Bash(git add -A)",
       "Bash(git clean -f nul)",
-      "Bash(git add .claude/settings.local.json api/whatsapp-baileys.js frontend/src/App.vue frontend/src/services/api.js frontend/vite.config.js server.js api/send-statistics.js api/user-association.js api/whatsapp-admin.js frontend/src/components/WhatsAppAdmin.vue WHATSAPP_ADMIN_GUIDE.md)"
+      "Bash(git add .claude/settings.local.json api/whatsapp-baileys.js frontend/src/App.vue frontend/src/services/api.js frontend/vite.config.js server.js api/send-statistics.js api/user-association.js api/whatsapp-admin.js frontend/src/components/WhatsAppAdmin.vue WHATSAPP_ADMIN_GUIDE.md)",
+      "Bash(npm run build-frontend)",
+      "Bash(git log:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
