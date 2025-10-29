@@ -36,11 +36,11 @@ async function writeAssociations(associations) {
 // 创建备份
 async function createBackup() {
   try {
-    // 获取当前用户数据
-    const users = await db.getUsers();
+    // 获取当前用户数据（优先从本地文件读取）
+    const users = await readLocalUsers();
 
-    // 获取当前配置
-    const config = await db.getConfig();
+    // 获取当前配置（优先从本地文件读取）
+    const config = await readLocalConfig();
 
     // 获取用户关联数据
     const associations = await readAssociations();
@@ -62,6 +62,32 @@ async function createBackup() {
   } catch (error) {
     console.error('创建备份失败:', error);
     throw error;
+  }
+}
+
+// 从本地文件读取用户数据
+async function readLocalUsers() {
+  try {
+    const data = await fs.readFile(LOCAL_DB_PATH, 'utf8');
+    const parsed = JSON.parse(data);
+    console.log('从本地文件读取到用户数量:', parsed.users?.length || 0);
+    return parsed.users || [];
+  } catch (error) {
+    console.error('从本地文件读取用户数据失败:', error);
+    return [];
+  }
+}
+
+// 从本地文件读取配置数据
+async function readLocalConfig() {
+  try {
+    const data = await fs.readFile(LOCAL_DB_PATH, 'utf8');
+    const parsed = JSON.parse(data);
+    console.log('从本地文件读取到配置:', parsed.config || {});
+    return parsed.config || { resetHour: 4, timezone: 'Asia/Shanghai', maxUnreadDays: 7, lastReset: null };
+  } catch (error) {
+    console.error('从本地文件读取配置失败:', error);
+    return { resetHour: 4, timezone: 'Asia/Shanghai', maxUnreadDays: 7, lastReset: null };
   }
 }
 
@@ -144,8 +170,8 @@ async function restoreFromBackup(backupData, options = { mergeExisting: false })
     // 验证备份数据
     validateBackupData(backupData);
 
-    // 获取当前用户数据
-    const currentUsers = await db.getUsers();
+    // 获取当前用户数据（从本地文件读取）
+    const currentUsers = await readLocalUsers();
     const currentAssociations = await readAssociations();
 
     let usersToRestore = backupData.users;
@@ -215,11 +241,11 @@ async function restoreFromBackup(backupData, options = { mergeExisting: false })
     // 如果不是合并模式，直接替换现有数据
     if (!options.mergeExisting) {
       // 写入新用户数据
-      await writeData(usersToRestore, backupData.config);
+      await writeLocalData(usersToRestore, backupData.config);
     } else {
       // 合并现有数据和恢复数据
       const mergedUsers = [...currentUsers, ...usersToRestore];
-      await writeData(mergedUsers, backupData.config);
+      await writeLocalData(mergedUsers, backupData.config);
     }
 
     // 写入关联数据
@@ -248,6 +274,19 @@ async function restoreFromBackup(backupData, options = { mergeExisting: false })
     };
   } catch (error) {
     console.error('从备份恢复数据失败:', error);
+    throw error;
+  }
+}
+
+// 写入本地数据文件
+async function writeLocalData(users, config) {
+  try {
+    console.log('写入本地数据文件...');
+    const data = { users, config };
+    await fs.writeFile(LOCAL_DB_PATH, JSON.stringify(data, null, 2), 'utf8');
+    console.log('本地数据文件写入成功');
+  } catch (error) {
+    console.error('写入本地数据文件失败:', error);
     throw error;
   }
 }
