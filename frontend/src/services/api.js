@@ -128,6 +128,41 @@ export const apiService = {
   // 获取聊天历史消息
   async getWhatsAppChatHistory(jid, limit = 50) {
     return await api.get(`/whatsapp-admin?action=chat_history&jid=${jid}&limit=${limit}`)
+  },
+
+  // ===== 备份/还原功能 =====
+
+  // 导出备份数据
+  async exportBackup() {
+    return await api.get('/backup-restore', {
+      responseType: 'blob' // 设置响应类型为blob，以便下载文件
+    })
+  },
+
+  // 从文件导入备份数据
+  async importBackup(file, mergeExisting = false) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const backupData = JSON.parse(e.target.result)
+          const result = await this.importBackupFromString(JSON.stringify(backupData), mergeExisting)
+          resolve(result)
+        } catch (error) {
+          reject(error)
+        }
+      }
+      reader.onerror = reject
+      reader.readAsText(file)
+    })
+  },
+
+  // 从JSON字符串导入备份数据
+  async importBackupFromString(backupData, mergeExisting = false) {
+    return await api.post('/backup-restore', {
+      backupData: JSON.parse(backupData),
+      mergeExisting
+    })
   }
 }
 

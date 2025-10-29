@@ -246,6 +246,64 @@
         </div>
       </div>
     </div>
+
+    <!-- 备份/还原 -->
+    <div class="backup-section">
+      <div class="section-header">
+        <h3>💾 备份/还原</h3>
+        <p>导出和导入用户数据及关联信息</p>
+      </div>
+
+      <div class="backup-controls">
+        <div class="backup-export">
+          <button class="backup-btn export-btn" @click="exportBackup" :disabled="exporting">
+            <i class="fas fa-download"></i>
+            <span v-if="exporting">导出中...</span>
+            <span v-else>导出备份</span>
+          </button>
+          <p class="help-text">导出当前用户数据、配置和关联信息到JSON文件</p>
+        </div>
+
+        <div class="backup-import">
+          <div class="import-controls">
+            <label class="file-label">
+              <input
+                type="file"
+                accept=".json"
+                @change="handleFileSelect"
+                class="file-input"
+              />
+              <span class="file-button">
+                <i class="fas fa-upload"></i>
+                选择备份文件
+              </span>
+            </label>
+
+            <div class="merge-option">
+              <input
+                type="checkbox"
+                id="mergeExisting"
+                v-model="mergeExisting"
+                class="checkbox-input"
+              />
+              <label for="mergeExisting">与现有数据合并（避免覆盖）</label>
+            </div>
+
+            <button class="backup-btn import-btn" @click="importBackup" :disabled="!selectedFile || importing">
+              <i class="fas fa-file-import"></i>
+              <span v-if="importing">导入中...</span>
+              <span v-else>导入备份</span>
+            </button>
+          </div>
+
+          <p class="help-text">导入之前导出的备份文件，恢复用户数据和关联信息</p>
+        </div>
+      </div>
+
+      <div v-if="backupResult" class="backup-result" :class="{ success: backupResult.success, error: !backupResult.success }">
+        {{ backupResult.message }}
+      </div>
+    </div>
   </div>
 </template>
 
@@ -272,6 +330,11 @@ const contactSearchQuery = ref('')
 const showPicker = ref(false)
 const currentUserId = ref(null)
 const sendResult = ref(null)
+const exporting = ref(false)
+const importing = ref(false)
+const selectedFile = ref(null)
+const mergeExisting = ref(false)
+const backupResult = ref(null)
 
 // 定时器
 let statusCheckInterval = null
@@ -567,6 +630,88 @@ const formatTimestamp = (timestamp) => {
 function showError(message) {
   alert(message)
   console.error(message)
+}
+
+// ===== 备份/还原功能 =====
+
+// 选择文件
+const handleFileSelect = (event) => {
+  const file = event.target.files[0]
+  if (file && file.type === 'application/json') {
+    selectedFile.value = file
+    backupResult.value = null
+  } else {
+    showError('请选择JSON格式的备份文件')
+    event.target.value = ''
+  }
+}
+
+// 导出备份
+const exportBackup = async () => {
+  exporting.value = true
+  backupResult.value = null
+
+  try {
+    const response = await apiService.exportBackup()
+    const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `bible-reading-backup-${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    backupResult.value = {
+      success: true,
+      message: '备份导出成功'
+    }
+  } catch (error) {
+    console.error('导出备份失败:', error)
+    backupResult.value = {
+      success: false,
+      message: '导出备份失败: ' + (error.message || '未知错误')
+    }
+  } finally {
+    exporting.value = false
+  }
+}
+
+// 导入备份
+const importBackup = async () => {
+  if (!selectedFile.value) {
+    showError('请先选择备份文件')
+    return
+  }
+
+  importing.value = true
+  backupResult.value = null
+
+  try {
+    await apiService.importBackup(selectedFile.value, mergeExisting.value)
+
+    // 重新加载数据
+    await loadUsers()
+
+    backupResult.value = {
+      success: true,
+      message: '备份导入成功'
+    }
+
+    // 清空文件选择
+    const fileInput = document.querySelector('input[type="file"]')
+    if (fileInput) fileInput.value = ''
+    selectedFile.value = null
+  } catch (error) {
+    console.error('导入备份失败:', error)
+    backupResult.value = {
+      success: false,
+      message: '导入备份失败: ' + (error.message || '未知错误')
+    }
+  } finally {
+    importing.value = false
+  }
 }
 </script>
 
@@ -1225,5 +1370,121 @@ function showError(message) {
   font-size: 11px;
   color: #999;
   text-align: right;
+}
+
+/* 备份/还原样式 */
+.backup-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.backup-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.backup-export, .backup-import {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.import-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.file-label {
+  position: relative;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.file-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  cursor: pointer;
+}
+
+.file-button {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.merge-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checkbox-input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.backup-btn {
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.backup-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.export-btn {
+  background: #4CAF50;
+}
+
+.import-btn {
+  background: #FF9800;
+}
+
+.help-text {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+}
+
+.backup-result {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.backup-result.success {
+  background: #e8f5e9;
+  color: #4CAF50;
+}
+
+.backup-result.error {
+  background: #ffebee;
+  color: #f44336;
 }
 </style>

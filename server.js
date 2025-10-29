@@ -245,6 +245,14 @@ try {
   console.log('统计到渠道API未找到，跳过加载:', error.message);
 }
 
+// 备份/还原API
+try {
+  const backupRestoreHandler = require('./api/backup-restore');
+  app.use('/api/backup-restore', backupRestoreHandler);
+} catch (error) {
+  console.log('备份/还原API未找到，跳过加载:', error.message);
+}
+
 // SPA路由 - 在所有API路由之后
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend/dist', 'index.html'));
