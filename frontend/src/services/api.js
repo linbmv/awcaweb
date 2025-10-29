@@ -59,7 +59,7 @@ export const apiService = {
   },
 
   // 通过特定渠道发送统计
-  async sendStatisticsToChannel(stats, channel) {
+  async sendStatisticsToChannel(stats, channel = 'whatsapp_baileys') {
     return await api.post('/statistics-to-channel', { customStats: stats, channel })
   },
 

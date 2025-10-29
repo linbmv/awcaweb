@@ -346,6 +346,18 @@ async function sendStatistics() {
     return
   }
 
+  // 根据环境变量配置选择通知渠道
+  // 优先级: Bark -> Telegram -> WhatsApp -> Webhook
+  let channel = null;
+
+  if (import.meta.env.VITE_APP_NOTIFICATION_CHANNEL && import.meta.env.VITE_APP_NOTIFICATION_CHANNEL.trim() !== '') {
+    channel = import.meta.env.VITE_APP_NOTIFICATION_CHANNEL.trim();
+  } else {
+    // 可以根据配置决定默认渠道
+    // 默认使用 WhatsApp Baileys 渠道
+    channel = 'whatsapp_baileys';
+  }
+
   try {
     // 复制到剪贴板
     if (navigator.clipboard && window.isSecureContext) {
@@ -365,28 +377,12 @@ async function sendStatistics() {
     }
 
     // 尝试发送到后端通知服务
-    try {
-      // 根据环境变量配置选择通知渠道
-      // 优先级: Bark -> Telegram -> WhatsApp -> Webhook
-      let channel = null;
-
-      if (process.env.VUE_APP_NOTIFICATION_CHANNEL) {
-        channel = process.env.VUE_APP_NOTIFICATION_CHANNEL;
-      } else {
-        // 可以根据配置决定默认渠道
-        // 默认使用 WhatsApp API 渠道
-        channel = 'whatsapp_api';
-      }
-
-      await apiService.sendStatisticsToChannel(stats, channel)
-      showSuccess(`统计信息已发送到 ${channel}`)
-    } catch (sendError) {
-      console.error(`发送统计到 ${channel} 失败:`, sendError)
-      // 如果发送失败，至少用户已将信息复制到剪贴板
-      showSuccess(`统计信息已复制到剪贴板（发送到${channel}失败）`)
-    }
-  } catch (error) {
-    showError(error.message)
+    await apiService.sendStatisticsToChannel(stats, channel)
+    showSuccess(`统计信息已发送到 ${channel}`)
+  } catch (sendError) {
+    console.error(`发送统计到 ${channel} 失败:`, sendError)
+    // 如果发送失败，至少用户已将信息复制到剪贴板
+    showSuccess(`统计信息已复制到剪贴板（发送到${channel}失败）`)
   }
 }
 
@@ -410,6 +406,37 @@ function showSuccess(message) {
 .admin-view {
   min-height: 100vh;
   background: #f5f5f5;
+}
+
+/* 统计按钮样式 */
+.send-stats-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #25D366; /* WhatsApp 绿色 */
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3);
+}
+
+.send-stats-btn:hover {
+  background: #128C7E; /* WhatsApp 深绿色 */
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
+}
+
+.send-stats-btn:active {
+  transform: translateY(0);
+}
+
+.send-stats-btn i {
+  font-size: 18px;
 }
 
 /* 头部布局修改 - 匹配图片样式，居中对齐，优化间距 */
