@@ -54,7 +54,7 @@ export const apiService = {
   },
 
   // 发送统计
-  async sendStatistics(stats, channel = 'notification') {  // 添加渠道参数，默认为notification
+  async sendStatistics(stats, channel = 'all') {  // 添加渠道参数，默认为all（发送到所有已配置的渠道）
     return await api.post('/send-statistics', { statistics: stats, channel })
   },
 

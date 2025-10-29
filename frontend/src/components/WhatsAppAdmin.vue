@@ -490,11 +490,16 @@ const sendTest = async () => {
   sendResult.value = null
 
   try {
-    // 这里应该调用新的API
-    await apiService.sendStatistics({
-      channel: 'whatsapp_api',
-      useWhatsAppFormat: true
-    })
+    // 先获取统计信息
+    const statsResponse = await apiService.getStatistics();
+    const statsText = statsResponse.data.statistics;
+
+    // 然后发送到选定的群组
+    await apiService.whatsappAdmin({
+      action: 'send_message',
+      jid: selectedGroupJid.value,
+      message: statsText
+    });
 
     sendResult.value = {
       success: true,

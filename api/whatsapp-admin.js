@@ -465,7 +465,9 @@ class WhatsAppAdminService {
     }
 
     try {
-      const result = await this.sock.sendMessage(jid, { text: message });
+      // 确保消息是正确的字符串格式
+      const cleanMessage = String(message);
+      const result = await this.sock.sendMessage(jid, { text: cleanMessage });
       return result;
     } catch (error) {
       console.error('发送消息失败:', error);
