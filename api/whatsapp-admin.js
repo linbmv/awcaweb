@@ -1,30 +1,177 @@
 /* eslint-disable no-undef */
-// /api/whatsapp-admin.js - WhatsApp管理API（简化版）
+// /api/whatsapp-admin.js - WhatsApp管理API（使用Baileys实现）
 const fs = require('fs');
 const path = require('path');
+const { Boom } = require('@hapi/boom');
 
-// 简化的 WhatsApp管理服务
+// 安全导入baileys模块
+let baileysModule;
+try {
+  baileysModule = require('baileys');
+} catch (e) {
+  console.error('无法导入baileys模块:', e.message);
+  // 导出一个错误处理函数，而不是让整个模块失败
+  module.exports = async (req, res) => {
+    res.status(500).json({ error: 'Baileys模块未正确安装或配置: ' + e.message });
+  };
+  module.exports.config = { runtime: 'nodejs' };
+  return; // 退出模块执行
+}
+
+// 从模块中提取需要的函数
+const {
+  default: makeWASocket,
+  DisconnectReason,
+  useMultiFileAuthState,
+  jidNormalizedUser,
+  proto,
+  getContentType,
+  Browsers,
+  fetchLatestBaileysVersion,
+  makeCacheableSignalKeyStore // 新版本中的缓存函数
+} = baileysModule;
+
+// 在新版本的baileys中，不再需要makeInMemoryStore，我们创建一个简单的store对象
+// 由于新版本的架构变化，我们使用更简单的方式处理存储
+const store = {
+  bind: (ev) => {
+    // 绑定事件监听器
+    if (ev) {
+      console.log('Store绑定到事件系统');
+    }
+  },
+  loadMessage: () => undefined,
+  loadMessages: () => [],
+  loadReceipts: () => undefined,
+  processMessage: () => {},
+  toJSON: () => ({}),
+  fromJSON: () => {},
+  writeToFile: () => {},
+  readFromFile: () => {}
+};
+
+// WhatsApp管理服务
 class WhatsAppAdminService {
   constructor() {
+    this.sock = null;
     this.isReady = false;
     this.connectionState = 'disconnected';
     this.qrCode = null;
     this.qrTimestamp = null;
+    this.authState = null;
     this.contacts = [];
     this.groups = [];
+    this.qrCallback = null; // 用于在生成QR码时回调
   }
 
-  // 模拟连接 - 生成模拟QR码
+  // 连接到WhatsApp
   async connect() {
-    console.log('正在连接WhatsApp服务...');
-    this.connectionState = 'qr';
-    // 生成一个更真实的QR码字符串（WhatsApp使用特定的协议格式）
-    // 实际的WhatsApp QR码通常包含wuid、timestamp和一些加密参数
-    const timestamp = Date.now();
-    const fakeWuid = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    this.qrCode = `2@${fakeWuid}#${timestamp.toString(32)}@U2FsdGVkX18${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-    this.qrTimestamp = timestamp;
-    return true;
+    console.log('正在连接到WhatsApp...');
+
+    try {
+      // 获取最新版本
+      const { version, isLatest } = await fetchLatestBaileysVersion();
+      console.log(`使用 WhatsApp Web v${version.join('.')}, 最新版本: ${isLatest}`);
+
+      const { state, saveCreds } = await useMultiFileAuthState('./whatsapp_auth');
+      this.authState = state;
+
+      // 创建pino logger实例以兼容新版本的baileys
+      const pino = require('pino');
+      const logger = pino({ level: 'debug' });
+
+      const sock = makeWASocket({
+        version,
+        auth: state,
+        logger: logger,
+        printQRInTerminal: false, // 新版本已弃用此选项，需要手动处理QR码
+        browser: Browsers.baileys('Desktop'), // 使用桌面浏览器标识
+        markOnlineOnConnect: true,
+        retryRequestDelayMs: 100,
+        maxMsgRetryCount: 10,
+      });
+
+      // 存储sock实例
+      this.sock = sock;
+
+      // 设置事件监听器
+      sock.ev.process(async (events) => {
+        // 连接更新
+        if (events['connection.update']) {
+          const { connection, lastDisconnect, qr } = events['connection.update'];
+
+          if (qr) {
+            // 当需要QR码时
+            console.log('请扫描以下二维码登录:');
+            console.log(qr);
+            this.qrCode = qr;
+            this.qrTimestamp = Date.now();
+            this.connectionState = 'qr';
+
+            // 如果有回调函数，执行它
+            if (this.qrCallback) {
+              this.qrCallback(qr);
+            }
+          }
+
+          if (connection === 'open') {
+            console.log('已成功连接到WhatsApp');
+            this.connectionState = 'connected';
+            this.isReady = true;
+            this.qrCode = null;
+          } else if (connection === 'close') {
+            console.log('与WhatsApp断开连接');
+            const shouldReconnect = (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut);
+            console.log('是否需要重连:', shouldReconnect);
+
+            if (shouldReconnect) {
+              setTimeout(() => {
+                this.connect();
+              }, 5000);
+            } else {
+              console.log('登录已失效，需要重新扫描QR码');
+              this.connectionState = 'disconnected';
+            }
+          } else if (connection === 'connecting') {
+            console.log('正在连接到WhatsApp...');
+          }
+        }
+
+        // 凭据更新
+        if (events['creds.update']) {
+          await saveCreds();
+          console.log('凭据已更新');
+        }
+
+        // 接收到消息
+        if (events['messages.upsert']) {
+          console.log('接收到消息:', events['messages.upsert']);
+        }
+
+        // 群组元数据更新
+        if (events['group-metadata.update']) {
+          console.log('群组元数据更新:', events['group-metadata.update']);
+        }
+
+        // 联系人更新
+        if (events['contacts.update']) {
+          for (const contact of events['contacts.update']) {
+            if (contact.notify) {
+              console.log('联系人更新:', contact.notify);
+            }
+          }
+        }
+      });
+
+      // 设置store
+      store.bind(sock.ev);
+
+      return true;
+    } catch (error) {
+      console.error('连接到WhatsApp失败:', error);
+      this.connectionState = 'disconnected';
+      throw error;
+    }
   }
 
   // 获取连接状态
@@ -42,7 +189,9 @@ class WhatsAppAdminService {
         ? 'WhatsApp服务未连接。请确保已正确配置 Baileys 依赖。'
         : this.connectionState === 'qr'
         ? '请使用手机WhatsApp扫描二维码'
-        : undefined
+        : this.connectionState === 'connected'
+        ? '已连接到WhatsApp'
+        : '正在连接...'
     };
   }
 
@@ -54,35 +203,74 @@ class WhatsAppAdminService {
     return null;
   }
 
+  // 设置QR码回调函数
+  setQrCallback(callback) {
+    this.qrCallback = callback;
+  }
+
   // 获取联系人列表
   async getContacts() {
-    // 模拟联系人数据
-    if (this.contacts.length === 0) {
-      this.contacts = [
-        { jid: '1234567890@s.whatsapp.net', name: '示例联系人1', verifiedName: '', isBusiness: false },
-        { jid: '0987654321@s.whatsapp.net', name: '示例联系人2', verifiedName: '', isBusiness: true },
-      ];
+    if (!this.sock) {
+      console.log('WhatsApp未连接，返回空联系人列表');
+      return [];
     }
-    return this.contacts;
+
+    try {
+      // 获取所有联系人
+      const contacts = this.sock.contacts || {};
+      const contactList = Object.values(contacts).map(contact => ({
+        jid: contact.id,
+        name: contact.name || contact.notify || contact.vname || contact.short || '未知联系人',
+        verifiedName: contact.verifiedName || '',
+        isBusiness: contact.isBusiness || false
+      }));
+
+      this.contacts = contactList;
+      return contactList;
+    } catch (error) {
+      console.error('获取联系人失败:', error);
+      return [];
+    }
   }
 
   // 获取群组列表
   async getGroups() {
-    // 模拟群组数据
-    if (this.groups.length === 0) {
-      this.groups = [
-        { jid: 'read-group-123@g.us', name: '读经群', participantCount: 25, owner: '' },
-        { jid: 'test-group-456@g.us', name: '测试群', participantCount: 10, owner: '' },
-      ];
+    if (!this.sock) {
+      console.log('WhatsApp未连接，返回空群组列表');
+      return [];
     }
-    return this.groups;
+
+    try {
+      // 获取群组列表
+      const groupData = await this.sock.groupFetchAllParticipating();
+      const groupList = Object.values(groupData || {}).map(group => ({
+        jid: group.id,
+        name: group.subject || '未命名群组',
+        participantCount: group.participants ? Object.keys(group.participants).length : 0,
+        owner: group.owner || ''
+      }));
+
+      this.groups = groupList;
+      return groupList;
+    } catch (error) {
+      console.error('获取群组失败:', error);
+      return [];
+    }
   }
 
   // 断开连接
   async disconnect() {
-    this.connectionState = 'disconnected';
-    this.isReady = false;
-    console.log('已断开WhatsApp连接');
+    if (this.sock) {
+      try {
+        await this.sock.logout();
+      } catch (error) {
+        console.error('登出失败:', error);
+      }
+      this.sock = null;
+      this.isReady = false;
+      this.connectionState = 'disconnected';
+      console.log('已断开与WhatsApp的连接');
+    }
   }
 
   // 清除认证
@@ -97,6 +285,59 @@ class WhatsAppAdminService {
       return true;
     } catch (error) {
       console.error('清除认证失败:', error);
+      throw error;
+    }
+  }
+
+  // 备份认证信息
+  async backupAuth() {
+    try {
+      const authDir = path.join(__dirname, '..', 'whatsapp_auth');
+      if (!fs.existsSync(authDir)) {
+        console.log('认证目录不存在，无法备份');
+        return false;
+      }
+
+      // 获取认证目录中的所有文件
+      const files = fs.readdirSync(authDir);
+      const backupData = {};
+
+      for (const file of files) {
+        const filePath = path.join(authDir, file);
+        if (fs.statSync(filePath).isFile()) {
+          const content = fs.readFileSync(filePath, 'utf8');
+          backupData[file] = content;
+        }
+      }
+
+      console.log(`已备份 ${files.length} 个认证文件`);
+      return backupData;
+    } catch (error) {
+      console.error('备份认证信息失败:', error);
+      throw error;
+    }
+  }
+
+  // 恢复认证信息
+  async restoreAuth(backupData) {
+    try {
+      const authDir = path.join(__dirname, '..', 'whatsapp_auth');
+
+      // 创建认证目录（如果不存在）
+      if (!fs.existsSync(authDir)) {
+        fs.mkdirSync(authDir, { recursive: true });
+      }
+
+      // 写入备份的文件
+      for (const [fileName, content] of Object.entries(backupData)) {
+        const filePath = path.join(authDir, fileName);
+        fs.writeFileSync(filePath, content, 'utf8');
+      }
+
+      console.log(`已恢复 ${Object.keys(backupData).length} 个认证文件`);
+      return true;
+    } catch (error) {
+      console.error('恢复认证信息失败:', error);
       throw error;
     }
   }
@@ -168,8 +409,29 @@ module.exports = async (req, res) => {
         case 'clear_auth':
           // 清除认证
           await service.clearAuth();
-          whatsappAdminService = null;
           return res.status(200).json({ message: '认证已清除' });
+
+        case 'backup_auth':
+          // 备份认证信息
+          const backupData = await service.backupAuth();
+          if (backupData) {
+            return res.status(200).json({
+              message: '认证信息备份成功',
+              backupData: backupData,
+              fileCount: Object.keys(backupData).length
+            });
+          } else {
+            return res.status(404).json({ error: '没有找到认证信息进行备份' });
+          }
+
+        case 'restore_auth':
+          // 恢复认证信息
+          const backupDataFromBody = req.body.backupData;
+          if (!backupDataFromBody) {
+            return res.status(400).json({ error: '缺少备份数据' });
+          }
+          await service.restoreAuth(backupDataFromBody);
+          return res.status(200).json({ message: '认证信息恢复成功' });
 
         default:
           return res.status(400).json({ error: '无效的操作' });

@@ -7,6 +7,15 @@
 
   <!-- Main app - shown only after authentication -->
   <div v-if="isAuthenticated">
+    <!-- WhatsApp状态按钮 - 定位在左上角 -->
+    <button class="whatsapp-status" :class="{ connected: whatsappConnectionStatus === 'connected', disconnected: whatsappConnectionStatus === 'disconnected' }" @click="currentView = 'whatsapp-admin'" title="WhatsApp管理">
+      <i class="fab fa-whatsapp whatsapp-icon"></i>
+      <div class="status-dot" v-if="whatsappConnectionStatus !== 'connected'"></div>
+    </button>
+
+    <!-- 添加用户按钮 - 定位在右上角 -->
+    <button class="add-user-btn" @click="showAddUserModal = true">+</button>
+
     <!-- WhatsApp管理页面 -->
     <div v-if="currentView === 'whatsapp-admin'" class="admin-view">
       <WhatsAppAdmin @back="currentView = 'main'" />
@@ -14,22 +23,12 @@
 
     <!-- 主页面 -->
     <div v-else class="container">
-      <!-- 头部 -->
-      <div class="app-controls">
-        <button class="whatsapp-btn" @click="currentView = 'whatsapp-admin'" title="WhatsApp管理">
-          <i class="fab fa-whatsapp"></i>
-        </button>
-        <button class="add-user-btn" @click="showAddUserModal = true">+</button>
-      </div>
-
       <header>
         <div class="header-left">
-          <h1>泛亚中文读经</h1>
+          <h1>泛亚中文读经组</h1>
           <div class="reading-plan" id="readingPlan">
             {{ readingPlan }}
           </div>
-        </div>
-        <div class="header-right">
         </div>
       </header>
 
@@ -107,6 +106,7 @@ const currentUnreadDays = ref(1)
 const currentUser = ref(null)
 const readingPlan = ref('')
 const liveStatistics = ref('')
+const whatsappConnectionStatus = ref('disconnected') // 默认为断开连接状态
 
 // 检查本地存储的密码
 onMounted(async () => {
@@ -118,6 +118,7 @@ onMounted(async () => {
       isAuthenticated.value = true
       await userStore.fetchUsers()
       await loadReadingPlan()
+      await loadWhatsAppStatus() // 加载WhatsApp状态
     } else {
       // 如果存储的密码无效，清除它
       localStorage.removeItem('appPassword')
@@ -127,6 +128,19 @@ onMounted(async () => {
     isAuthenticated.value = false
   }
 })
+
+// 加载WhatsApp连接状态
+async function loadWhatsAppStatus() {
+  try {
+    const response = await apiService.getWhatsAppStatus()
+    if (response.data && response.data.state) {
+      whatsappConnectionStatus.value = response.data.state === 'connected' ? 'connected' : 'disconnected'
+    }
+  } catch (error) {
+    console.error('获取WhatsApp状态失败:', error)
+    whatsappConnectionStatus.value = 'disconnected' // 默认为断开连接
+  }
+}
 
 // 用户列表
 const users = computed(() => userStore.users)
@@ -398,29 +412,55 @@ function showSuccess(message) {
   background: #f5f5f5;
 }
 
-/* 头部布局修改 */
+/* 头部布局修改 - 匹配图片样式，居中对齐，优化间距 */
 header {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   align-items: center;
   padding: 20px;
   background: white;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   margin-bottom: 20px;
   position: relative;
+  text-align: center;
+  gap: 12px; /* 增加间距，使布局更协调 */
 }
 
 .header-left {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 15px;
-  flex: 1;
+  gap: 12px; /* 增加间距，使布局更协调 */
+  width: 100%;
+  max-width: 600px; /* 限制最大宽度，使居中更明显 */
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+/* 标题样式 - 匹配图片样式，居中对齐 */
+h1 {
+  color: var(--text-color);
+  margin: 0;
+  font-size: 22px;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* 读经计划样式 - 匹配图片样式，居中对齐 */
+.reading-plan {
+  margin: 0;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+  font-size: 15px;
+  line-height: 1.6;
+  border: 1px solid #e9ecef;
+  max-width: 100%;
+  word-wrap: break-word;
+  font-weight: 500;
+  color: #495057;
+  text-align: center;
 }
 
 
@@ -455,60 +495,13 @@ header {
     gap: 16px;
   }
 
-  .header-right {
-    width: 100%;
-    justify-content: center;
-  }
 }
 
-/* 控制按钮组样式 */
-.app-controls {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  display: flex;
-  gap: 10px;
-  z-index: 1000; /* 确保它在其他元素之上 */
-}
-
-/* WhatsApp按钮样式 */
-.whatsapp-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  background: #25D366;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.4);
-  transition: all 0.3s;
-  font-size: 24px;
-}
-
-.whatsapp-btn:hover {
-  background: #128C7E;
-  transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(37, 211, 102, 0.6);
-}
-
-.whatsapp-btn i {
-  display: block;
-}
-
-@media (max-width: 768px) {
-  .whatsapp-btn {
-    width: 44px;
-    height: 44px;
-    font-size: 20px;
-  }
-}
-
-/* 添加用户按钮样式 */
+/* 添加用户按钮样式 - 定位在右上角 */
 .add-user-btn {
-  position: static; /* 确保它在 app-controls 内部正确显示 */
+  position: fixed;
+  top: 20px;
+  right: 20px;
   background: #007bff; /* 蓝色按钮 */
   color: white;
   border: none;
@@ -522,11 +515,24 @@ header {
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
   transition: all 0.3s;
+  z-index: 1000; /* 确保它在其他元素之上 */
+  align-items: center;
+  justify-content: center;
 }
 
 .add-user-btn:hover {
   background: #0056b3;
   transform: scale(1.1);
   box-shadow: 0 6px 20px rgba(0, 123, 255, 0.6);
+}
+
+@media (max-width: 768px) {
+  .add-user-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+    top: 15px;
+    right: 15px;
+  }
 }
 </style>

@@ -19,7 +19,7 @@ const { generateStatisticsText, validateUser } = require('./backend/utils');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // 增加请求大小限制以支持认证备份/恢复
 
 // 根据环境服务构建后的静态文件
 const staticDir = process.env.VERCEL ? 'dist' : 'frontend/dist';
