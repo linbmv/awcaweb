@@ -251,7 +251,18 @@
     <div class="backup-section">
       <div class="section-header">
         <h3>💾 备份/还原</h3>
-        <p>导出和导入用户数据及关联信息</p>
+        <p>导出和导入用户数据、关联信息及WhatsApp认证</p>
+      </div>
+
+      <div class="backup-info">
+        <div class="info-box">
+          <h4>备份内容</h4>
+          <ul>
+            <li>用户数据和配置</li>
+            <li>WhatsApp用户关联信息</li>
+            <li>WhatsApp登录认证信息</li>
+          </ul>
+        </div>
       </div>
 
       <div class="backup-controls">
@@ -261,7 +272,7 @@
             <span v-if="exporting">导出中...</span>
             <span v-else>导出备份</span>
           </button>
-          <p class="help-text">导出当前用户数据、配置和关联信息到JSON文件</p>
+          <p class="help-text">导出当前所有数据到JSON文件</p>
         </div>
 
         <div class="backup-import">
@@ -296,12 +307,15 @@
             </button>
           </div>
 
-          <p class="help-text">导入之前导出的备份文件，恢复用户数据和关联信息</p>
+          <p class="help-text">导入备份文件，恢复所有数据包括WhatsApp认证</p>
         </div>
       </div>
 
       <div v-if="backupResult" class="backup-result" :class="{ success: backupResult.success, error: !backupResult.success }">
         {{ backupResult.message }}
+        <div v-if="backupResult.whatsappAuthRestored" class="small-text">
+          WhatsApp认证信息已恢复，连接状态可能需要刷新
+        </div>
       </div>
     </div>
   </div>
@@ -689,14 +703,15 @@ const importBackup = async () => {
   backupResult.value = null
 
   try {
-    await apiService.importBackup(selectedFile.value, mergeExisting.value)
+    const response = await apiService.importBackup(selectedFile.value, mergeExisting.value)
 
     // 重新加载数据
     await loadUsers()
 
     backupResult.value = {
       success: true,
-      message: '备份导入成功'
+      message: '备份导入成功',
+      whatsappAuthRestored: response.data?.whatsappAuthRestored || false
     }
 
     // 清空文件选择
@@ -1486,5 +1501,35 @@ const importBackup = async () => {
 .backup-result.error {
   background: #ffebee;
   color: #f44336;
+}
+
+/* 备份信息框样式 */
+.backup-info {
+  margin-bottom: 20px;
+}
+
+.info-box {
+  background: #e3f2fd;
+  border-radius: 8px;
+  padding: 16px;
+  border-left: 4px solid #2196F3;
+}
+
+.info-box h4 {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: #2196F3;
+}
+
+.info-box ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #333;
+}
+
+.small-text {
+  font-size: 12px;
+  margin-top: 4px;
+  font-style: italic;
 }
 </style>

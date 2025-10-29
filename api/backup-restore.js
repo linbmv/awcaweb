@@ -45,18 +45,73 @@ async function createBackup() {
     // 获取用户关联数据
     const associations = await readAssociations();
 
+    // 获取WhatsApp认证信息
+    const whatsappAuthFiles = await readWhatsAppAuthFiles();
+
     // 创建备份数据
     const backupData = {
       version: '1.0',
       timestamp: new Date().toISOString(),
       users,
       config,
-      associations
+      associations,
+      whatsappAuth: whatsappAuthFiles
     };
 
     return backupData;
   } catch (error) {
     console.error('创建备份失败:', error);
+    throw error;
+  }
+}
+
+// 读取WhatsApp认证文件
+async function readWhatsAppAuthFiles() {
+  const authDir = './whatsapp_auth';
+  try {
+    const files = await fs.readdir(authDir);
+    const authData = {};
+
+    for (const file of files) {
+      if (file.endsWith('.json')) {
+        try {
+          const filePath = path.join(authDir, file);
+          const content = await fs.readFile(filePath, 'utf8');
+          authData[file] = JSON.parse(content);
+        } catch (error) {
+          console.warn(`读取认证文件 ${file} 失败:`, error.message);
+        }
+      }
+    }
+
+    return authData;
+  } catch (error) {
+    console.warn('读取WhatsApp认证信息失败:', error.message);
+    return {}; // 返回空对象，避免影响备份流程
+  }
+}
+
+// 写入WhatsApp认证文件
+async function writeWhatsAppAuthFiles(authData) {
+  const authDir = './whatsapp_auth';
+  try {
+    // 创建目录如果不存在
+    if (!require('fs').existsSync(authDir)) {
+      await fs.mkdir(authDir, { recursive: true });
+    }
+
+    // 写入每个认证文件
+    for (const [filename, content] of Object.entries(authData)) {
+      if (typeof content === 'object') {
+        const filePath = path.join(authDir, filename);
+        await fs.writeFile(filePath, JSON.stringify(content, null, 2), 'utf8');
+      }
+    }
+
+    console.log('WhatsApp认证文件恢复成功');
+    return true;
+  } catch (error) {
+    console.error('写入WhatsApp认证文件失败:', error);
     throw error;
   }
 }
@@ -73,6 +128,11 @@ function validateBackupData(data) {
 
   if (!data.associations || typeof data.associations !== 'object') {
     throw new Error('备份数据缺少关联信息或格式不正确');
+  }
+
+  // WhatsApp认证信息是可选的
+  if (data.whatsappAuth && typeof data.whatsappAuth !== 'object') {
+    throw new Error('WhatsApp认证信息格式不正确');
   }
 
   return true;
@@ -165,11 +225,26 @@ async function restoreFromBackup(backupData, options = { mergeExisting: false })
     // 写入关联数据
     await writeAssociations(associationsToRestore);
 
+    // 恢复WhatsApp认证信息
+    let whatsappAuthRestored = false;
+    if (backupData.whatsappAuth && Object.keys(backupData.whatsappAuth).length > 0) {
+      try {
+        console.log('开始恢复WhatsApp认证信息...');
+        await writeWhatsAppAuthFiles(backupData.whatsappAuth);
+        whatsappAuthRestored = true;
+        console.log('WhatsApp认证信息恢复成功');
+      } catch (authError) {
+        console.error('恢复WhatsApp认证信息失败:', authError.message);
+        // 这不是致命错误，继续执行
+      }
+    }
+
     return {
       success: true,
       message: '数据恢复成功',
       restoredUsers: usersToRestore.length,
-      mergedWithExisting: options.mergeExisting
+      mergedWithExisting: options.mergeExisting,
+      whatsappAuthRestored
     };
   } catch (error) {
     console.error('从备份恢复数据失败:', error);
