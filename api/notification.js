@@ -14,13 +14,22 @@ try {
 // 统一的消息推送服务
 class NotificationService {
     // 通过Baileys发送WhatsApp消息（仅发送）
-    async sendWhatsAppBaileys(message) {
-        const recipientPhone = process.env.WHATSAPP_BAILEYS_RECIPIENT_PHONE;
+    async sendWhatsAppBaileys(message, recipientJid = null) {
+        // 如果没有提供目标JID，使用环境变量中的默认值
+        const defaultRecipient = process.env.WHATSAPP_BAILEYS_RECIPIENT_PHONE;
+        const targetJid = recipientJid || defaultRecipient;
+
         const baileysEnabled = process.env.WHATSAPP_BAILEYS_ENABLED === 'true';
 
-        if (!baileysEnabled || !recipientPhone) {
-            console.warn('WhatsApp Baileys 配置未设置 (WHATSAPP_BAILEYS_ENABLED=true, WHATSAPP_BAILEYS_RECIPIENT_PHONE)');
-            return;
+        if (!baileysEnabled || !targetJid) {
+            if (!recipientJid) {
+                // 如果是使用默认值的情况下失败，给出警告
+                console.warn('WhatsApp Baileys 配置未设置 (WHATSAPP_BAILEYS_ENABLED=true, WHATSAPP_BAILEYS_RECIPIENT_PHONE)');
+                return;
+            } else {
+                // 如果是用户提供了JID但仍然失败，抛出错误
+                throw new Error('WhatsApp Baileys 未启用或目标JID未提供');
+            }
         }
 
         try {
@@ -29,12 +38,14 @@ class NotificationService {
                 throw new Error('Baileys模块未安装或未找到');
             }
 
-            // 发送消息的API端点
-            const response = await fetch('/api/whatsapp-sender', {
+            // 构建完整的API URL
+            const port = process.env.PORT || 3003;
+            const baseUrl = `http://localhost:${port}`;
+            const response = await fetch(`${baseUrl}/api/whatsapp-sender`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    to: recipientPhone,
+                    to: targetJid,
                     message: message
                 })
             });
@@ -44,7 +55,7 @@ class NotificationService {
                 throw new Error(`发送 WhatsApp Baileys 消息失败: ${errorData.error?.message || response.statusText}`);
             }
 
-            console.log('WhatsApp Baileys 消息发送成功');
+            console.log(`WhatsApp Baileys 消息发送成功到 ${targetJid}`);
         } catch (error) {
             console.error('发送 WhatsApp Baileys 消息失败:', error);
             throw error;
@@ -127,7 +138,7 @@ n    // 通过外部 WhatsApp API 服务发送消息
         });
     }
 
-    async send(channel, message) {
+    async send(channel, message, options = {}) {
         const adapters = {
             'whatsapp_baileys': this.sendWhatsAppBaileys,
             'whatsapp_api': this.sendWhatsAppApi,
@@ -137,7 +148,13 @@ n    // 通过外部 WhatsApp API 服务发送消息
         if (!adapters[channel]) {
             throw new Error(`不支持的消息渠道: ${channel}`);
         }
-        return adapters[channel](message);
+
+        // 根据渠道类型传递不同的参数
+        if (channel === 'whatsapp_baileys') {
+            return adapters[channel].call(this, message, options.recipientJid);
+        } else {
+            return adapters[channel].call(this, message);
+        }
     }
 
     // 发送到所有已配置的渠道
@@ -190,10 +207,38 @@ n    // 通过外部 WhatsApp API 服务发送消息
             message: `成功发送到 ${successful.length}/${channels.length} 个渠道`
         };
     }
+
+    // 发送到特定的WhatsApp群组（绕过配置检查，直接发送到指定JID）
+    async sendToWhatsAppGroup(message, groupJid) {
+        if (!groupJid) {
+            throw new Error('必须提供群组JID');
+        }
+
+        try {
+            // 尝试通过Baileys发送（如果可用）
+            if (process.env.WHATSAPP_BAILEYS_ENABLED === 'true') {
+                await this.sendWhatsAppBaileys(message, groupJid);
+                return {
+                    success: true,
+                    channel: 'whatsapp_baileys',
+                    message: `消息已发送到群组 ${groupJid}`
+                };
+            } else {
+                throw new Error('WhatsApp Baileys未启用');
+            }
+        } catch (error) {
+            console.error('发送到WhatsApp群组失败:', error);
+            throw error;
+        }
+    }
 }
 
+// 同时导出NotificationService类和API处理函数
+module.exports = NotificationService;
+module.exports.NotificationService = NotificationService;
+
 // Vercel Serverless Function for notification
-module.exports = async (req, res) => {
+module.exports.handler = async (req, res) => {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');

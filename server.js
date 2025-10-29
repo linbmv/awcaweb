@@ -113,17 +113,6 @@ app.get('/api/statistics', async (req, res) => {
     }
 });
 
-// 发送统计信息
-app.post('/api/send-statistics', async (req, res) => {
-    try {
-        // 这里可以添加发送到WhatsApp等的逻辑
-        const { statistics } = req.body;
-        console.log('Sending statistics:', statistics);
-        res.json({ success: true, message: '统计信息已发送' });
-    } catch (error) {
-        res.status(500).json({ error: '发送统计信息失败' });
-    }
-});
 
 // 密码验证
 app.post('/api/verify-password', async (req, res) => {
@@ -222,6 +211,14 @@ try {
   app.use('/api/whatsapp-admin', whatsappAdminHandler);
 } catch (error) {
   console.log('WhatsApp管理API未找到，跳过加载:', error.message);
+}
+
+// WhatsApp发送器API
+try {
+  const whatsappSenderHandler = require('./api/whatsapp-sender');
+  app.use('/api/whatsapp-sender', whatsappSenderHandler);
+} catch (error) {
+  console.log('WhatsApp发送器API未找到，跳过加载:', error.message);
 }
 
 // 用户关联API

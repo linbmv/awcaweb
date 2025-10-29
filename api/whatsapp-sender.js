@@ -21,9 +21,13 @@ class WhatsAppSender {
       const { state, saveCreds } = await useMultiFileAuthState('./whatsapp_auth');
       this.authState = state;
 
+      // 创建pino logger实例以兼容新版本的baileys
+      const pino = require('pino');
+      const logger = pino({ level: 'debug' });
+
       this.sock = makeWASocket({
         auth: state,
-        logger: console,
+        logger: logger,
         printQRInTerminal: true, // 在终端打印QR码，用于首次登录
         browser: Browsers.baileys('Desktop'), // 浏览器标识
         markOnlineOnConnect: false, // 不标记为在线，因为我们只发送消息
