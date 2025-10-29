@@ -485,7 +485,7 @@ export default async function handler(req, res) {
             channel: channel
           });
         } catch (error) {
-          console.error(`发送统计信息到 ${channel} 失败:`, error);
+          console.error('发送统计信息失败:', error);
           return res.status(500).json({ error: `发送统计信息失败: ${error.message}` });
         }
       } else {

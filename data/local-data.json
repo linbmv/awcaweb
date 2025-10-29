@@ -75,8 +75,8 @@
     {
       "id": "1760511531039",
       "name": "林黎临",
-      "isRead": false,
-      "unreadDays": 2,
+      "isRead": true,
+      "unreadDays": 0,
       "frozen": false,
       "createdAt": "2025-10-15T06:58:51.039Z"
     },
@@ -91,16 +91,16 @@
     {
       "id": "1760511531042",
       "name": "王志宇",
-      "isRead": false,
-      "unreadDays": 2,
+      "isRead": true,
+      "unreadDays": 0,
       "frozen": false,
       "createdAt": "2025-10-15T06:58:51.042Z"
     },
     {
       "id": "1760511531043",
       "name": "蔡文丰",
-      "isRead": false,
-      "unreadDays": 1,
+      "isRead": true,
+      "unreadDays": 0,
       "frozen": false,
       "createdAt": "2025-10-15T06:58:51.043Z"
     },
@@ -123,8 +123,8 @@
     {
       "id": "1760511531047",
       "name": "龚成鹏",
-      "isRead": false,
-      "unreadDays": 2,
+      "isRead": true,
+      "unreadDays": 0,
       "frozen": false,
       "createdAt": "2025-10-15T06:58:51.046Z"
     },
@@ -171,8 +171,8 @@
     {
       "id": "1760511531054",
       "name": "杨起纳",
-      "isRead": false,
-      "unreadDays": 6,
+      "isRead": true,
+      "unreadDays": 0,
       "frozen": false,
       "createdAt": "2025-10-15T06:58:51.053Z"
     }

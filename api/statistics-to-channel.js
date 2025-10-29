@@ -38,9 +38,9 @@ module.exports = async (req, res) => {
     // 创建通知服务实例并发送
     const notificationService = new NotificationService();
 
-    // 如果channel为'all'，则发送到所有已配置的渠道
+    // 如果channel为'all'，'all_channels'或'notification'，则发送到所有已配置的渠道
     let result;
-    if (channel === 'all' || channel === 'all_channels') {
+    if (channel === 'all' || channel === 'all_channels' || channel === 'notification') {
       result = await notificationService.sendToAllChannels(messageToSend);
       return res.status(200).json({
         success: true,
@@ -57,7 +57,7 @@ module.exports = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error(`发送统计信息到 ${channel} 失败:`, error);
+    console.error('发送统计信息失败:', error);
     return res.status(500).json({ error: `发送统计信息失败: ${error.message}` });
   }
 };

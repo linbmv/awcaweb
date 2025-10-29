@@ -129,7 +129,7 @@ module.exports = async (req, res) => {
     const notificationService = new NotificationService();
 
     let result;
-    if (channel === 'all' || channel === 'all_channels') {
+    if (channel === 'all' || channel === 'all_channels' || channel === 'notification') {
       result = await notificationService.sendToAllChannels(statistics);
       return res.status(200).json({
         success: true,

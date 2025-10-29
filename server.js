@@ -237,6 +237,14 @@ try {
   console.log('发送统计API未找到，跳过加载:', error.message);
 }
 
+// 统计到渠道API
+try {
+  const statisticsToChannelHandler = require('./api/statistics-to-channel');
+  app.use('/api/statistics-to-channel', statisticsToChannelHandler);
+} catch (error) {
+  console.log('统计到渠道API未找到，跳过加载:', error.message);
+}
+
 // SPA路由 - 在所有API路由之后
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend/dist', 'index.html'));

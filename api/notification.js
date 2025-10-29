@@ -139,6 +139,11 @@ n    // 通过外部 WhatsApp API 服务发送消息
     }
 
     async send(channel, message, options = {}) {
+        // 如果channel为'notification'，则发送到所有已配置的渠道
+        if (channel === 'notification' || channel === 'all' || channel === 'all_channels') {
+            return this.sendToAllChannels(message);
+        }
+
         const adapters = {
             'whatsapp_baileys': this.sendWhatsAppBaileys,
             'whatsapp_api': this.sendWhatsAppApi,
