@@ -258,6 +258,32 @@ class WhatsAppAdminService {
     }
   }
 
+  // 获取群组成员列表
+  async getGroupParticipants(groupJid) {
+    if (!this.sock) {
+      console.log('WhatsApp未连接，返回空成员列表');
+      return [];
+    }
+
+    try {
+      // 获取群组信息，包括成员
+      const groupMetadata = await this.sock.groupMetadata(groupJid);
+      const participants = groupMetadata.participants || [];
+
+      const participantList = participants.map(participant => ({
+        jid: participant.id,
+        name: participant.name || participant.displayName || participant.id,
+        isAdmin: participant.admin === 'admin' || participant.admin === 'superadmin',
+        isSuperAdmin: participant.admin === 'superadmin'
+      }));
+
+      return participantList;
+    } catch (error) {
+      console.error('获取群组成员失败:', error);
+      return [];
+    }
+  }
+
   // 断开连接
   async disconnect() {
     if (this.sock) {
@@ -285,6 +311,194 @@ class WhatsAppAdminService {
       return true;
     } catch (error) {
       console.error('清除认证失败:', error);
+      throw error;
+    }
+  }
+
+  // 获取聊天历史消息
+  async getChatMessages(jid, limit = 50) {
+    if (!this.sock) {
+      throw new Error('WhatsApp未连接');
+    }
+
+    try {
+      // 尝试从聊天存储中获取消息 - 这是当前版本Baileys的主要方式
+      if (this.sock.chats && this.sock.chats.get) {
+        const chat = this.sock.chats.get(jid);
+        if (chat && chat.msgs) {
+          // 尝试获取最近的消息
+          const messages = Array.from(chat.msgs.values ? chat.msgs.values() : chat.msgs).slice(-limit);
+
+          // 处理消息数据，使其更易用
+          const processedMessages = messages.map(message => {
+            const msgKey = message.key;
+            const msgContent = message.message;
+
+            let messageText = '';
+            let messageType = 'unknown';
+
+            if (msgContent?.conversation) {
+              messageText = msgContent.conversation;
+              messageType = 'text';
+            } else if (msgContent?.extendedTextMessage?.text) {
+              messageText = msgContent.extendedTextMessage.text;
+              messageType = 'text';
+            } else if (msgContent?.imageMessage) {
+              messageText = '[图片消息]';
+              messageType = 'image';
+            } else if (msgContent?.videoMessage) {
+              messageText = '[视频消息]';
+              messageType = 'video';
+            } else if (msgContent?.audioMessage) {
+              messageText = '[语音消息]';
+              messageType = 'audio';
+            } else if (msgContent?.documentMessage) {
+              messageText = '[文档消息]';
+              messageType = 'document';
+            } else if (msgContent?.contactMessage) {
+              messageText = '[联系人消息]';
+              messageType = 'contact';
+            } else if (msgContent?.locationMessage) {
+              messageText = '[位置消息]';
+              messageType = 'location';
+            }
+
+            return {
+              id: msgKey.id,
+              from: msgKey.remoteJid,
+              fromMe: msgKey.fromMe,
+              participant: msgKey.participant,
+              pushName: message.pushName,
+              message: messageText,
+              type: messageType,
+              timestamp: message.messageTimestamp ? new Date(message.messageTimestamp * 1000) : null,
+              status: message.status
+            };
+          });
+
+          return processedMessages;
+        }
+      }
+
+      // 如果聊天存储不可用，返回空数组
+      return [];
+    } catch (error) {
+      console.error('获取聊天消息失败:', error);
+      // 如果主要方法失败，尝试备用方法
+      try {
+        // 尝试从聊天存储中获取消息
+        if (this.sock.chats && this.sock.chats.get) {
+          const chat = this.sock.chats.get(jid);
+          if (chat && chat.msgs) {
+            // 尝试获取最近的消息
+            const messages = Array.from(chat.msgs.values ? chat.msgs.values() : chat.msgs).slice(-limit);
+            return messages.map(message => {
+              const msgKey = message.key;
+              const msgContent = message.message;
+
+              let messageText = '';
+              let messageType = 'unknown';
+
+              if (msgContent?.conversation) {
+                messageText = msgContent.conversation;
+                messageType = 'text';
+              } else if (msgContent?.extendedTextMessage?.text) {
+                messageText = msgContent.extendedTextMessage.text;
+                messageType = 'text';
+              } else if (msgContent?.imageMessage) {
+                messageText = '[图片消息]';
+                messageType = 'image';
+              } else if (msgContent?.videoMessage) {
+                messageText = '[视频消息]';
+                messageType = 'video';
+              } else if (msgContent?.audioMessage) {
+                messageText = '[语音消息]';
+                messageType = 'audio';
+              } else if (msgContent?.documentMessage) {
+                messageText = '[文档消息]';
+                messageType = 'document';
+              } else if (msgContent?.contactMessage) {
+                messageText = '[联系人消息]';
+                messageType = 'contact';
+              } else if (msgContent?.locationMessage) {
+                messageText = '[位置消息]';
+                messageType = 'location';
+              }
+
+              return {
+                id: msgKey.id,
+                from: msgKey.remoteJid,
+                fromMe: msgKey.fromMe,
+                participant: msgKey.participant,
+                pushName: message.pushName,
+                message: messageText,
+                type: messageType,
+                timestamp: message.messageTimestamp ? new Date(message.messageTimestamp * 1000) : null,
+                status: message.status
+              };
+            });
+          }
+        }
+      } catch (innerError) {
+        console.error('备用方法获取聊天消息失败:', innerError);
+      }
+
+      // 如果两种方法都失败，返回空数组
+      return [];
+    }
+  }
+
+  // 获取特定联系人的聊天历史
+  async getContactChatHistory(contactJid, limit = 50) {
+    return await this.getChatMessages(contactJid, limit);
+  }
+
+  // 获取群组聊天历史
+  async getGroupChatHistory(groupJid, limit = 50) {
+    return await this.getChatMessages(groupJid, limit);
+  }
+
+  // 发送消息到指定JID
+  async sendMessage(jid, message) {
+    if (!this.sock) {
+      throw new Error('WhatsApp未连接');
+    }
+
+    try {
+      const result = await this.sock.sendMessage(jid, { text: message });
+      return result;
+    } catch (error) {
+      console.error('发送消息失败:', error);
+      throw error;
+    }
+  }
+
+  // 获取所有聊天列表
+  async getChats() {
+    if (!this.sock) {
+      throw new Error('WhatsApp未连接');
+    }
+
+    try {
+      // 获取所有聊天记录
+      const chats = this.sock.chats || new Map();
+      const chatList = [];
+
+      for (const [jid, chat] of chats.entries()) {
+        chatList.push({
+          jid: jid,
+          name: chat.name || chat.pushName || jid,
+          unreadCount: chat.unreadCount || 0,
+          lastMessage: chat.lastMessage || null,
+          timestamp: chat.timestamp ? new Date(chat.timestamp * 1000) : null,
+          isGroup: jid.includes('@g.us'),
+          isUser: jid.includes('@s.whatsapp.net')
+        });
+      }
+
+      return chatList;
+    } catch (error) {
+      console.error('获取聊天列表失败:', error);
       throw error;
     }
   }
@@ -389,6 +603,38 @@ module.exports = async (req, res) => {
           const groups = await service.getGroups();
           return res.status(200).json({ groups });
 
+        case 'group_participants':
+          // 获取群组成员列表
+          const { jid: groupJid } = req.query;
+          if (!groupJid) {
+            return res.status(400).json({ error: '缺少群组JID参数' });
+          }
+          const participants = await service.getGroupParticipants(groupJid);
+          return res.status(200).json({ participants });
+
+        case 'chats':
+          // 获取聊天列表
+          const chats = await service.getChats();
+          return res.status(200).json({ chats });
+
+        case 'chat_history':
+          // 获取特定聊天的历史消息
+          const { jid, limit } = req.query;
+          if (!jid) {
+            return res.status(400).json({ error: '缺少聊天JID参数' });
+          }
+          const chatHistory = await service.getChatMessages(jid, parseInt(limit) || 50);
+          return res.status(200).json({ messages: chatHistory });
+
+        case 'send_message':
+          // 发送消息
+          const { jid: sendJid, message } = req.query;
+          if (!sendJid || !message) {
+            return res.status(400).json({ error: '缺少消息JID或消息内容参数' });
+          }
+          const sendResult = await service.sendMessage(sendJid, message);
+          return res.status(200).json({ result: sendResult });
+
         default:
           return res.status(400).json({ error: '无效的操作' });
       }
@@ -432,6 +678,15 @@ module.exports = async (req, res) => {
           }
           await service.restoreAuth(backupDataFromBody);
           return res.status(200).json({ message: '认证信息恢复成功' });
+
+        case 'send_message':
+          // 发送消息
+          const { jid: sendJid, message } = req.body;
+          if (!sendJid || !message) {
+            return res.status(400).json({ error: '缺少消息JID或消息内容参数' });
+          }
+          const sendResult = await service.sendMessage(sendJid, message);
+          return res.status(200).json({ result: sendResult });
 
         default:
           return res.status(400).json({ error: '无效的操作' });

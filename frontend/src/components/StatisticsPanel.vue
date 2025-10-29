@@ -18,8 +18,11 @@ const emit = defineEmits(['update-statistics'])
 const computedStatistics = computed(() => {
   let stats = ''
 
+  // 确保 users 是数组
+  const users = Array.isArray(props.users) ? props.users : []
+
   // 今日未读
-  const todayUnread = props.users
+  const todayUnread = users
     .filter(u => !u.isRead && !u.frozen && u.unreadDays === 1)
     .map(u => `@${u.name}`)
     .join(' ')
@@ -28,7 +31,7 @@ const computedStatistics = computed(() => {
 
   // 多日未读
   for (let days = 2; days <= 7; days++) {
-    const daysUnread = props.users
+    const daysUnread = users
       .filter(u => !u.isRead && !u.frozen && u.unreadDays === days)
       .map(u => `@${u.name}`)
       .join(' ')

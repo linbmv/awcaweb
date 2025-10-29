@@ -187,6 +187,65 @@
         {{ sendResult.message }}
       </div>
     </div>
+
+    <!-- 聊天信息 -->
+    <div class="chat-section" v-if="connectionState === 'connected'">
+      <div class="section-header">
+        <h3>💬 聊天信息</h3>
+        <p>查看聊天列表和历史消息</p>
+      </div>
+
+      <div class="chat-controls">
+        <button class="chat-btn" @click="loadChats" :disabled="loadingChats">
+          <i class="fas fa-comments"></i>
+          <span v-if="loadingChats">加载中...</span>
+          <span v-else>加载聊天列表</span>
+        </button>
+      </div>
+
+      <!-- 聊天列表 -->
+      <div v-if="chats.length > 0" class="chats-list">
+        <div
+          v-for="chat in chats"
+          :key="chat.jid"
+          class="chat-item"
+          @click="selectChat(chat)"
+        >
+          <div class="chat-icon">
+            <i :class="chat.isGroup ? 'fas fa-users' : 'fas fa-user'"></i>
+          </div>
+          <div class="chat-info">
+            <div class="chat-name">{{ chat.name }}</div>
+            <div class="chat-meta">
+              <span v-if="chat.unreadCount > 0" class="unread-count">未读: {{ chat.unreadCount }}</span>
+              <span v-if="chat.timestamp" class="chat-timestamp">{{ formatTimestamp(chat.timestamp) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 聊天历史 -->
+      <div v-if="selectedChat && chatHistory.length > 0" class="chat-history-section">
+        <h4>与 {{ selectedChat.name }} 的聊天历史</h4>
+        <div class="chat-history">
+          <div
+            v-for="message in chatHistory"
+            :key="message.id"
+            class="message-item"
+            :class="{ 'from-me': message.fromMe, 'from-them': !message.fromMe }"
+          >
+            <div class="message-info">
+              <span class="message-sender">{{ message.pushName || '未知用户' }}</span>
+              <span class="message-time">{{ formatTimestamp(message.timestamp) }}</span>
+            </div>
+            <div class="message-content">
+              <div class="message-text">{{ message.message }}</div>
+              <div class="message-type">{{ message.type }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -197,13 +256,17 @@ import apiService from '../services/api'
 // 响应式数据
 const loading = ref(false)
 const sending = ref(false)
+const loadingChats = ref(false)
 const connectionState = ref('disconnected')
 const qrCode = ref(null)
 const users = ref([])
 const associations = ref({})
 const contacts = ref([])
 const groups = ref([])
+const chats = ref([])
+const chatHistory = ref([])
 const selectedGroupJid = ref('')
+const selectedChat = ref(null)
 const searchQuery = ref('')
 const contactSearchQuery = ref('')
 const showPicker = ref(false)
@@ -461,6 +524,39 @@ onUnmounted(() => {
     clearInterval(statusCheckInterval)
   }
 })
+
+// 加载聊天列表
+const loadChats = async () => {
+  loadingChats.value = true
+  try {
+    const response = await apiService.getWhatsAppChats()
+    chats.value = response.data?.chats || []
+  } catch (error) {
+    console.error('加载聊天列表失败:', error)
+    showError('无法加载聊天列表: ' + (error.message || '未知错误'))
+  } finally {
+    loadingChats.value = false
+  }
+}
+
+// 选择聊天
+const selectChat = async (chat) => {
+  selectedChat.value = chat
+  try {
+    const response = await apiService.getWhatsAppChatHistory(chat.jid)
+    chatHistory.value = response.data?.messages || []
+  } catch (error) {
+    console.error('加载聊天历史失败:', error)
+    showError('无法加载聊天历史: ' + (error.message || '未知错误'))
+  }
+}
+
+// 格式化时间戳
+const formatTimestamp = (timestamp) => {
+  if (!timestamp) return ''
+  const date = new Date(timestamp)
+  return date.toLocaleString('zh-CN')
+}
 
 // 错误提示
 function showError(message) {
@@ -968,5 +1064,161 @@ function showError(message) {
 .send-result.error {
   background: #ffebee;
   color: #f44336;
+}
+
+.chat-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.chat-controls {
+  margin-bottom: 20px;
+}
+
+.chat-btn {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.chat-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.chats-list {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
+.chat-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.chat-item:hover {
+  background: #f5f5f5;
+}
+
+.chat-icon {
+  width: 40px;
+  height: 40px;
+  background: #2196F3;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+}
+
+.chat-info {
+  flex: 1;
+}
+
+.chat-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.chat-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #666;
+}
+
+.unread-count {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.chat-timestamp {
+  color: #999;
+}
+
+.chat-history-section {
+  margin-top: 20px;
+}
+
+.chat-history-section h4 {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.chat-history {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.message-item {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  max-width: 80%;
+}
+
+.message-item.from-me {
+  background: #e3f2fd;
+  margin-left: auto;
+  text-align: right;
+}
+
+.message-item.from-them {
+  background: #f5f5f5;
+  margin-right: auto;
+}
+
+.message-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #666;
+}
+
+.message-sender {
+  font-weight: bold;
+}
+
+.message-time {
+  color: #999;
+}
+
+.message-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.message-text {
+  word-wrap: break-word;
+}
+
+.message-type {
+  font-size: 11px;
+  color: #999;
+  text-align: right;
 }
 </style>

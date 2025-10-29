@@ -55,7 +55,7 @@ export const apiService = {
 
   // 发送统计
   async sendStatistics(stats, channel = 'notification') {  // 添加渠道参数，默认为notification
-    return await api.post('/statistics/send', { stats, channel })
+    return await api.post('/send-statistics', { statistics: stats, channel })
   },
 
   // 通过特定渠道发送统计
@@ -118,6 +118,16 @@ export const apiService = {
   // 发送统计信息（支持WhatsApp格式）
   async sendStatisticsEnhanced(data) {
     return await api.post('/send-statistics', data)
+  },
+
+  // 获取聊天列表
+  async getWhatsAppChats() {
+    return await api.get('/whatsapp-admin?action=chats')
+  },
+
+  // 获取聊天历史消息
+  async getWhatsAppChatHistory(jid, limit = 50) {
+    return await api.get(`/whatsapp-admin?action=chat_history&jid=${jid}&limit=${limit}`)
   }
 }
 

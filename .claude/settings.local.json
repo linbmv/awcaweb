@@ -73,7 +73,14 @@
       "Bash(PORT=3045 npm start)",
       "Bash(PORT=3050 npm start)",
       "Bash(PORT=3060 npm start)",
-      "Read(//c/**)"
+      "Read(//c/**)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(kill -9 358 333 14160 197608)",
+      "Bash(netstat -ano)",
+      "Bash(awk '{print $5}')",
+      "Bash(xargs -r taskkill -PID -F)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

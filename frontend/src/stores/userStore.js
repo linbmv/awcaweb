@@ -20,9 +20,12 @@ export const useUserStore = defineStore('user', () => {
   // 添加用户
   async function addUsers(names) {
     try {
+      // 确保 users.value 是数组
+      const currentUsers = Array.isArray(users.value) ? users.value : []
+
       // 检查是否有重复的用户名并过滤掉
-      const existingNames = users.value.map(user => user.name.toLowerCase())
-      const newNames = names.filter(name => 
+      const existingNames = currentUsers.map(user => user.name.toLowerCase())
+      const newNames = names.filter(name =>
         !existingNames.includes(name.toLowerCase())
       )
       
